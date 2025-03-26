@@ -57,29 +57,38 @@ public class AgentEtat extends Agent {
                     if(etageActuel < etageCible){
                         etageActuel++ ;
                         monte = true ;
+                        System.out.println("L'ascenseur monte a l'etage : "+etageActuel) ;
+                    }
+                    else if(etageActuel > etageCible){
+                        etageActuel-- ;
+                        monte = false ;
+                        System.out.println("L'ascenseur descend a l'etage : "+etageActuel) ;
+                    }
+                    else{
+                        System.out.println("L'ascenseur s'arrete a l'etage : "+etageActuel) ;
+                        requests.poll() ;
+                        //Comportement d'ouverture et de fermeture des portes de l'ascenseur
+                        addBehaviour(new OneShotBehaviour(){
+                            @Override
+                            public void action(){
+                                System.out.println("Ouverture des portes a l'etage"+etageActuel) ;
+                                porte = true ;
+                                //Simulation d'une attente de 3 secondes avant la fermeture des portes
+                                try{
+                                    System.out.println("Attente de personnel....") ;
+                                    Thread.sleep(3000) ;
+                                }
+                                catch(Exception e){
+                                    e.printStackTrace() ;
+                                }
+                                System.out.println("Fermeture des portes....") ;
+                                porte = false ;
+                            }
+            
+                        });
                     }
                 }
             }
-        });
-        
-        //Comportement d'ouverture et de fermeture des portes de l'ascenseur
-        addBehaviour(new OneShotBehaviour(){
-            @Override
-            public void action(){
-                System.out.println("Ouverture des portes a l'etage"+etageActuel) ;
-                porte = true ;
-                //Simulation d'une attente de 3 secondes avant la fermeture des portes
-                try{
-                    System.out.println("Attente de personnel....") ;
-                    Thread.sleep(3000) ;
-                }
-                catch(Exception e){
-                    e.printStackTrace() ;
-                }
-                System.out.println("Fermeture des portes....") ;
-                porte = false ;
-            }
-            
         });
     }
     
