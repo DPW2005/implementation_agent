@@ -5,8 +5,10 @@
 package implementation;
 
 import jade.core.Agent ;
-import jade.core.behaviours.CyclicBehaviour;
+import jade.core.behaviours.*;
 import jade.lang.acl.ACLMessage;
+import java.util.PriorityQueue ;
+import java.util.Queue ;
 
 /**
  *
@@ -14,48 +16,78 @@ import jade.lang.acl.ACLMessage;
  */
 public class AgentEtat extends Agent {
     
-    private final int etageMax = 15 ; //Definition du nombre maximal d'etage
-    private int etageActuel = 0 ; //Etage auquel se trouve l'ascenseur a un instant donne
-    private int[] etagesAppel ; //Liste des etages ou ont ete appele l'ascenseur et par lequel il passera
-    private int[] etagesDestination ; //Liste des etages de destination auxquels doit s'arreter l'ascenseur
-    private boolean porte = false ; //Indique si les portes sont fermees ou pas
-    private boolean monte ; //Indique si l'ascenseur monte ou pas
+    private int etageActuel = 0 ; //Initialisation de l'etat initial ou se trouve l'ascenseur
+    private boolean monte = true ; //Indique si l'ascenseur monte ou descends
+    private boolean porte = false ; //Indique si la porte est ouverte ou pas
+    private Queue<Integer> requests = new PriorityQueue<>() ; //Liste des etages ou sont sollicites l'ascenseur
     
     @Override
     protected void setup(){
-        System.out.println("Ascenseur pret a vous deplacer") ;
+        System.out.println("Agent est pret a etre utilise") ;
         
+        //Comportement d'ecoute des appels aux differents etages
+        addBehaviour(new CyclicBehaviour(){
+            @Override
+            public void action(){
+                //L'agent est en attente des messages lui etant destines
+                ACLMessage message = receive() ;
+                if(message != null){
+                    try{
+                        //Recuperation du contenu du message et creation de la reponse
+                        int etage = Integer.parseInt(message.getContent()) ;
+                        ajouterDemande(etage) ;
+                        System.out.println("Nouvelle requete pour l'etage"+etage) ;
+                    }
+                    catch(Exception e){
+                        e.printStackTrace() ;
+                    }
+                }
+                else{
+                    block() ;
+                }
+            }
+        });
         
+        //Comportement de deplacement de l'ascenseur
+        addBehaviour(new TickerBehaviour(this,2000){
+            @Override
+            public void onTick(){
+                if(!requests.isEmpty()){
+                    int etageCible = requests.peek() ;
+                    if(etageActuel < etageCible){
+                        etageActuel++ ;
+                        monte = true ;
+                    }
+                }
+            }
+        });
+        
+        //Comportement d'ouverture et de fermeture des portes de l'ascenseur
+        addBehaviour(new OneShotBehaviour(){
+            @Override
+            public void action(){
+                System.out.println("Ouverture des portes a l'etage"+etageActuel) ;
+                porte = true ;
+                //Simulation d'une attente de 3 secondes avant la fermeture des portes
+                try{
+                    System.out.println("Attente de personnel....") ;
+                    Thread.sleep(3000) ;
+                }
+                catch(Exception e){
+                    e.printStackTrace() ;
+                }
+                System.out.println("Fermeture des portes....") ;
+                porte = false ;
+            }
+            
+        });
     }
     
-    private void deplacerAscenseur(int nouvelEtage){
-        System.out.println("Deplacement en cours...") ;
-        try{
-            Thread.sleep(3000);
-        }
-        catch(Exception e){
-            e.printStackTrace() ;
-        }
-        etageActuel = nouvelEtage ;
-    }
-    
-    private void ouvrirPorte(){
-        System.out.println("Ouverture des porte...") ;
-        try{
-            Thread.sleep(3000);
-        }
-        catch(Exception e){
-            e.printStackTrace() ;
+    //Fonction qui ajoute un etage de destination dans la liste
+    public void ajouterDemande(int etageAppel){
+        if(!requests.contains(etageAppel)){
+            requests.add(etageAppel) ;
         }
     }
     
-    private void fermerPorte(){
-        System.out.println("Fermeture des porte...") ;
-        try{
-            Thread.sleep(3000);
-        }
-        catch(Exception e){
-            e.printStackTrace() ;
-        }
-    }
 }
