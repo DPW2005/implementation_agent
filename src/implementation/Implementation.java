@@ -22,8 +22,8 @@ public class Implementation {
             profile.setParameter(Profile.MAIN_HOST, "localhost") ;
             profile.setParameter(Profile.GUI, "true") ;
             AgentContainer container = rt.createMainContainer(profile) ;
-            AgentController reactif = container.createNewAgent("Machine", AgentReactif.class.getName(), null) ;
-            reactif.start();
+            AgentController etat = container.createNewAgent("Machine", AgentEtat.class.getName(), null) ;
+            etat.start();
         }
         catch(Exception e){
             e.printStackTrace();
