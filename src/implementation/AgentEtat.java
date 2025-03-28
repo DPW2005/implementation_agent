@@ -7,6 +7,7 @@ package implementation;
 import jade.core.Agent ;
 import jade.core.behaviours.*;
 import jade.lang.acl.ACLMessage;
+import java.util.Collections;
 import java.util.PriorityQueue ;
 import java.util.Queue ;
 
@@ -19,7 +20,8 @@ public class AgentEtat extends Agent {
     private int etageActuel = 0 ; //Initialisation de l'etat initial ou se trouve l'ascenseur
     private boolean monte = true ; //Indique si l'ascenseur monte ou descends
     private boolean porte = false ; //Indique si la porte est ouverte ou pas
-    private Queue<Integer> requests = new PriorityQueue<>() ; //Liste des etages ou sont sollicites l'ascenseur
+    private Queue<Integer> upRequests = new PriorityQueue<>() ; //Liste des etages ou sont sollicites l'ascenseur quand il monte
+    private Queue<Integer> downRequests = new PriorityQueue<>(Collections.reverseOrder()) ; //Liste des etages ou sont sollicites l'ascenseur quand il descend
     
     @Override
     protected void setup(){
@@ -52,40 +54,20 @@ public class AgentEtat extends Agent {
         addBehaviour(new TickerBehaviour(this,2000){
             @Override
             public void onTick(){
-                if(!requests.isEmpty()){
-                    int etageCible = requests.peek() ;
-                    if(etageActuel < etageCible){
-                        etageActuel++ ;
-                        monte = true ;
-                        System.out.println("L'ascenseur monte a l'etage : "+etageActuel) ;
-                    }
-                    else if(etageActuel > etageCible){
-                        etageActuel-- ;
+                if(monte && !upRequests.isEmpty()){
+                    int etageCible = upRequests.poll() ;
+                    seDeplacer(etageCible) ;
+                }
+                else if(!monte && !downRequests.isEmpty()){
+                    int etageCible = downRequests.poll() ;
+                    seDeplacer(etageCible) ;
+                }
+                else{
+                    if(monte && !downRequests.isEmpty()){
                         monte = false ;
-                        System.out.println("L'ascenseur descend a l'etage : "+etageActuel) ;
                     }
-                    else{
-                        System.out.println("L'ascenseur s'arrete a l'etage : "+etageActuel) ;
-                        requests.poll() ;
-                        //Comportement d'ouverture et de fermeture des portes de l'ascenseur
-                        addBehaviour(new OneShotBehaviour(){
-                            @Override
-                            public void action(){
-                                System.out.println("Ouverture des portes a l'etage"+etageActuel) ;
-                                porte = true ;
-                                //Simulation d'une attente de 3 secondes avant la fermeture des portes
-                                try{
-                                    System.out.println("Attente de personnel....") ;
-                                    Thread.sleep(3000) ;
-                                }
-                                catch(Exception e){
-                                    e.printStackTrace() ;
-                                }
-                                System.out.println("Fermeture des portes....") ;
-                                porte = false ;
-                            }
-            
-                        });
+                    else if(!monte && !upRequests.isEmpty()){
+                        monte = true ;
                     }
                 }
             }
@@ -94,9 +76,52 @@ public class AgentEtat extends Agent {
     
     //Fonction qui ajoute un etage de destination dans la liste
     public void ajouterDemande(int etageAppel){
-        if(!requests.contains(etageAppel)){
-            requests.add(etageAppel) ;
+        if(etageAppel > etageActuel){
+            if(!upRequests.contains(etageAppel)){
+                upRequests.add(etageAppel) ;
+            }
+        }
+        else if(etageAppel < etageActuel){
+            if(!downRequests.contains(etageAppel)){
+                downRequests.add(etageAppel) ;
+            }
+        }
+        else{
+            System.out.println("Ascenseur a cet etage") ;
         }
     }
     
+    public void seDeplacer(int etage){
+        while(etageActuel != etage){
+            if(etageActuel < etage){
+                etageActuel++ ;
+            }
+            else{
+                etageActuel-- ;
+            }
+            System.out.println("Ascenseur se deplace : etage "+etageActuel);
+            try{
+                Thread.sleep(3000) ;
+            }
+            catch(Exception e){
+                e.printStackTrace() ;
+            }
+        }
+        System.out.println("Arret a l'etage : "+etageActuel) ;
+        addBehaviour(new OneShotBehaviour(){
+            @Override
+            public void action(){
+                System.out.println("Ouverture des portes a l'etage : "+etageActuel) ;
+                porte = true ;
+                try{
+                    Thread.sleep(3000) ;
+                }
+                catch(Exception e){
+                    e.printStackTrace() ;
+                }
+                System.out.println("Fermeture des portes.....") ;
+                porte = false ;
+            }
+        });
+    }
 }
