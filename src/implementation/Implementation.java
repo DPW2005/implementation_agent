@@ -22,7 +22,7 @@ public class Implementation {
             profile.setParameter(Profile.MAIN_HOST, "localhost") ;
             profile.setParameter(Profile.GUI, "true") ;
             AgentContainer container = rt.createMainContainer(profile) ;
-            AgentController etat = container.createNewAgent("Machine", AgentEtat.class.getName(), null) ;
+            AgentController etat = container.createNewAgent("Machine", AgentUtilite.class.getName(), null) ;
             etat.start();
         }
         catch(Exception e){
