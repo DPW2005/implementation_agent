@@ -6,151 +6,97 @@ package implementation;
 
 import jade.core.Agent ;
 import jade.core.behaviours.CyclicBehaviour ;
+import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage ;
 import java.util.Random ;
 
 public class AgentUtilite extends Agent {
-    private enum Etats {IDLE,EN_MOUVEMENT, ARRET_AU_FEU, ESQUIVE_OBSTACLE, CHANGEMENT_VOIE, ARRET_URGENCE} ;
-    private Etats etatActuel = Etats.IDLE ;
-    private double batterie = 100.0 ;
-    private double vitesse = 0.0 ;
-    private String positionActuel = "Base" ;
-    private String destination = null ;
-    private boolean obstacle = false ;
-    private boolean feuRouge = false ;
-    private boolean traffic = false ;
-    private Random rand = new Random() ;
-    private double poidsReel = 0.4 ;
-    private double poidsRecommande = 0.3 ;
-    private double poidsConforme = 0.2 ;
-    private double poidsEnernetique = 0.1 ;
+    private double prixAction ; // Prix des actions
+    private double prixObligation ; // Prix des obligations
+    private double volatiliteMarche ; // Les fluctuations du marches
+    private double toleranceRisque ; // Niveau de risque maximal accepte par l'investisseur
+    private String etat ; // L'etat actuel du portefeuille
     
     @Override
     protected void setup(){
         System.out.println("Agent est pret a etre utilise") ;
+        prixAction = 100.0 ;
+        prixObligation = 50.0 ;
+        volatiliteMarche = 1.5 ;
+        toleranceRisque = 2.0 ;
+        etat = "Evaluation" ;
         
         addBehaviour(new CyclicBehaviour(){
             @Override
             public void action(){
                 ACLMessage message = receive() ;
                 if(message != null){
-                    traitementMessage(message) ;
-                    majEtat() ;
-                    choisirAction() ;
+                    String contenu = message.getContent() ;
+                    System.out.println("Mise a jour du marche recue : "+contenu) ;
+                    //Simulation de la mise a jour de la volatilite du marche
+                    Random rand = new Random() ;
+                    prixAction *= (0.95 + rand.nextDouble() * 0.1) ;
+                    prixObligation *= (0.98 + rand.nextDouble() * 0.05) ;
+                    volatiliteMarche = rand.nextDouble() * 3.0 ;
+                    evaluerPorteFeuille() ;
                 }
                 else{
                     block() ;
                 }
             }
         });
-    }
-    
-    private void traitementMessage(ACLMessage msg){
-        if(msg.getPerformative() == ACLMessage.REQUEST){
-            System.out.println("Mission recue : destination vers "+msg.getContent()) ;
-            destination = msg.getContent() ;
-            etatActuel = Etats.EN_MOUVEMENT ;
-        }
-    }
-    
-    private void majEtat(){
-        if(rand.nextDouble() < 0.2){
-            obstacle = true ;
-        }
-        if(rand.nextDouble() < 0.1){
-            feuRouge = true ;
-        }
-        if(rand.nextDouble() < 0.3){
-            traffic = true ;
-        }
-        if(etatActuel == Etats.EN_MOUVEMENT){
-            vitesse += 50 + rand.nextInt(20) ;
-            batterie -= 10 ;
-            if(obstacle){
-                etatActuel = Etats.ESQUIVE_OBSTACLE ;
-            }
-            else if(feuRouge){
-                etatActuel = Etats.ARRET_AU_FEU ;
-            }
-            else if(traffic){
-                etatActuel = Etats.CHANGEMENT_VOIE ;
-            }
-            if(batterie < 10){
-                etatActuel = Etats.ARRET_URGENCE ;
-            }
-        }
-        if(etatActuel == Etats.ARRET_AU_FEU || etatActuel == Etats.ESQUIVE_OBSTACLE){
-            vitesse = 0.0 ;
-        }
-        if(etatActuel == Etats.ARRET_URGENCE){
-            vitesse = 0.0 ;
-            System.out.println("Batteir faible, arret d'urgence.") ;
-        }
-    }
-    
-    private void choisirAction(){
-        double utiliteMouvement = calculerUtilite(Etats.EN_MOUVEMENT) ;
-        double utiliteEsquive = calculerUtilite(Etats.ESQUIVE_OBSTACLE) ;
-        double utiliteArret = calculerUtilite(Etats.ARRET_AU_FEU) ;
-        double utiliteChangement = calculerUtilite(Etats.CHANGEMENT_VOIE) ;
-        double utiliteArretUrgence = calculerUtilite(Etats.ARRET_URGENCE) ;
         
-        double[] utilites = {utiliteMouvement, utiliteEsquive, utiliteArret, utiliteChangement, utiliteArretUrgence} ;
-        double maxUtilite = utilites[0] ;
-        Etats meilleurEtat = Etats.EN_MOUVEMENT ;
-        for(int i = 1 ; i < utilites.length ; i++){
-            if(utilites[i] > maxUtilite){
-                maxUtilite = utilites[i] ;
-                meilleurEtat = Etats.values()[i] ;
+        addBehaviour(new TickerBehaviour(this,10000){
+            @Override
+            public void onTick(){
+                evaluerPorteFeuille() ;
             }
-        }
-        etatActuel = meilleurEtat ;
-        realiserAction(etatActuel) ;
+        });
     }
     
-    private double calculerUtilite(Etats etat){
-        double utilite = 0 ;
-        switch(etat){
-            case EN_MOUVEMENT :
-                utilite = (poidsReel * (100.0 / vitesse)) - (poidsRecommande * (obstacle ? 1 : 0)) ;
-                break ;
-            case ESQUIVE_OBSTACLE :
-                utilite = -poidsRecommande - poidsConforme ;
-                break ;
-            case ARRET_AU_FEU :
-                utilite = poidsReel * -1 + poidsRecommande * 0 + poidsEnernetique * -0.2 ;
-                break ;
-            case CHANGEMENT_VOIE :
-                utilite = poidsReel * 0.5 - poidsRecommande * 0.5 - poidsEnernetique * 0.5 ;
-                break ;
-            case ARRET_URGENCE :
-                utilite = -poidsRecommande * 10 - poidsEnernetique * 0.5 ;
-                break ;
+    //Methode pour evaluer le portefeuille et ajuster en fonction des conditions
+    private void evaluerPorteFeuille(){
+        double utilite = calculerUtilite() ;
+        if(volatiliteMarche > toleranceRisque){
+            etat = "Trop risque" ;
+            envoyerRecommandation("Votre porte feuille est trop risque. Envisage de diversifier vos placements") ;
+            reequilibrerPortefeuille() ;
         }
-        return utilite ;
+        else if(utilite < 0.5){
+            etat = "Peu rentable" ;
+            envoyerRecommandation("Votre portefeuille est peu rentable. Trouvez des placements plus performants") ;
+            trouverMeilleursPlacements() ;
+        }
+        else{
+            etat = "Portefeuille equilibre" ;
+            envoyerRecommandation("Votre portefeuille est stable. Aucun changement majeur n'est necessaire") ;
+        }
+        System.out.println("Etat actuel : "+etat+" | Utilite : "+utilite) ;
     }
     
-    private void realiserAction(Etats etat){
-        switch(etat){
-            case EN_MOUVEMENT :
-                System.out.println("Voiture en deplacement a "+vitesse+" km/h.") ;
-                positionActuel = destination ;
-                break ;
-            case ESQUIVE_OBSTACLE :
-                System.out.println("Obstacle detecte! Evitement de l'obstacle") ;
-                vitesse = 0 ;
-                break ;
-            case ARRET_AU_FEU :
-                System.out.println("Arret au feu rouge") ;
-                break ;
-            case CHANGEMENT_VOIE :
-                System.out.println("Changement de voie pour eviter le traffic") ;
-                break ;
-            case ARRET_URGENCE :
-                System.out.println("Arret d'urgence du a une batteire faible") ;
-                break ;
-            default :
-                break ;
-        }
+    //Methode pour calculer l'utilite du portefeuille en fonction du rendement attendu et du risque
+    private double calculerUtilite(){
+        double rendementAttendu = prixAction * 0.07 + prixObligation * 0.03 ;
+        double facteurRisque = volatiliteMarche / toleranceRisque ;
+        return Math.max(0, Math.min(1, rendementAttendu / (1 + facteurRisque))) ;
+    }
+    
+    //Methode pour envoyer une recommandation d'ajustement au client
+    private void envoyerRecommandation(String conseil){
+        ACLMessage message = new ACLMessage(ACLMessage.INFORM) ;
+        message.addReceiver(getDefaultDF()) ;
+        message.setContent(conseil) ;
+        send(message) ;
+        System.out.println("Recommandation envoyee : "+conseil) ;
+    }
+    
+    //Methode pour reequilibrer le portefeuille
+    private void reequilibrerPortefeuille(){
+        envoyerRecommandation("Reequilibrage en cours : augmentation des obligations et reduction des actions") ;
+    }
+    
+    //Methode pour trouver des placements plus performants
+    private void trouverMeilleursPlacements(){
+        envoyerRecommandation("Analyse des tendances pour identifier ds actifs plus performants") ;
     }
 }
