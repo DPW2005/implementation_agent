@@ -27,11 +27,13 @@ public class AgentBut extends Agent {
             public void action(){
                 ACLMessage message = receive() ;
                 if(message != null){
-                   traitementMessage(message) ; 
+                   traitementMessage(message) ;
+                   majEtat() ;
+                   choisirAction() ;
                 }
-                majEtat() ;
-                choisirAction() ;
-                block() ;
+                else{
+                    block() ;
+                }
             }
         });
     }
